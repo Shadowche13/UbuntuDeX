@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  * { box-sizing: border-box; user-select: none; margin: 0; padding: 0; font-family: sans-serif; }
+  body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    background: linear-gradient(135deg, #2c001e 0%, #77216f 55%, #e95420 100%);
+    color: #fff;
+  }
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: 30px;
+    background: #111; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; font-size: 13px; z-index: 1000;
+  }
+  #dock {
+    position: fixed; top: 30px; left: 0; bottom: 0; width: 62px;
+    background: rgba(15, 15, 15, 0.9); display: flex; flex-direction: column;
+    align-items: center; padding-top: 10px; gap: 12px; z-index: 900;
+  }
+  .dock-btn {
+    width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+  }
+  .dock-btn:active { background: #e95420; }
+  #desktop { position: absolute; top: 30px; left: 62px; right: 0; bottom: 0; }
+  
+  .window {
+    position: absolute; width: 620px; height: 380px; top: 25px; left: 40px;
+    background: #252525; border-radius: 7px 7px 0 0; border: 1px solid #444;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.7); display: none; flex-direction: column;
+  }
+  .win-bar {
+    height: 34px; background: #383734; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 12px; font-size: 13px; font-weight: bold;
+  }
+  .win-close {
+    width: 18px; height: 18px; border-radius: 50%; background: #e95420;
+    border: none; color: #fff; font-weight: bold;
+  }
+  .win-content { flex: 1; overflow-y: auto; padding: 12px; font-size: 14px; }
+  
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+  .item-box {
+    background: #333; padding: 10px; border-radius: 6px; text-align: center;
+    word-break: break-word; font-size: 12px;
+  }
+  .item-box:active { background: #e95420; }
+
+  #term-body { background: #300a24; font-family: monospace; color: #fff; }
+  #term-in {
+    background: transparent; border: none; color: #fff; font-family: monospace;
+    font-size: 14px; width: 70%; outline: none;
+  }
+</style>
+</head>
+<body>
+
+  <div id="topbar">
+    <div><b>Ubuntu DeX</b> | Alcatel Workspace</div>
+    <div id="clock">00:00</div>
+    <div id="live-stats">RAM: --/-- MB | SD: --/-- GB | 🔋 --%</div>
+  </div>
+
+  <div id="dock">
+    <div class="dock-btn" onclick="openFiles('')" title="64GB Файлове">📁</div>
+    <div class="dock-btn" onclick="openWin('win-term')" title="Linux Kernel Shell">💻</div>
+    <div class="dock-btn" onclick="openApps()" title="Инсталирани Приложения">🚀</div>
+    <div class="dock-btn" onclick="openSysInfo()" title="Реален Хардуер">⚙️</div>
+  </div>
+
+  <div id="desktop">
+    <div class="window" id="win-files" style="display:flex;">
+      <div class="win-bar" ontouchstart="drag(event, 'win-files')">
+        <span id="file-title">Files - /storage/emulated/0</span>
+        <button class="win-close" onclick="closeWin('win-files')">✕</button>
+      </div>
+      <div class="win-content">
+        <button onclick="openFiles('')" style="background:#e95420;color:#fff;border:none;padding:6px 12px;border-radius:4px;margin-bottom:10px;">⬅ Към Главната Папка (Root SD)</button>
+        <div class="grid" id="real-files-grid"></div>
+      </div>
+    </div>
+
+    <div class="window" id="win-term" style="top:50px; left:80px;">
+      <div class="win-bar" ontouchstart="drag(event, 'win-term')">
+        <span>Linux Kernel Shell (/system/bin/sh)</span>
+        <button class="win-close" onclick="closeWin('win-term')">✕</button>
+      </div>
+      <div class="win-content" id="term-body" onclick="document.getElementById('term-in').focus()">
+        <div id="term-out">Реален Linux Shell готов. Опитай: <b>uname -a</b>, <b>df -h</b>, <b>cat /proc/cpuinfo</b>, <b>ls -la /sdcard</b>, <b>ps</b><br><br></div>
+        <div>
+          <span style="color:#8ae234;">shell@alcatel:~$ </span>
+          <input type="text" id="term-in" onkeydown="runRealShell(event)" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <div class="window" id="win-apps" style="top:40px; left:110px;">
+      <div class="win-bar" ontouchstart="drag(event, 'win-apps')">
+        <span>Applications (Всички приложения на таблета)</span>
+        <button class="win-close" onclick="closeWin('win-apps')">✕</button>
+      </div>
+      <div class="win-content">
+        <div class="grid" id="real-apps-grid"></div>
+      </div>
+    </div>
+
+    <div class="window" id="win-sys" style="top:65px; left:140px;">
+      <div class="win-bar" ontouchstart="drag(event, 'win-sys')">
+        <span>System Monitor (Live Hardware Data)</span>
+        <button class="win-close" onclick="closeWin('win-sys')">✕</button>
+      </div>
+      <div class="win-content" id="sys-details" style="line-height: 1.8;"></div>
+    </div>
+  </div>
+
+<script>
+  let z = 20;
+  function openWin(id) {
+    const el = document.getElementById(id);
+    el.style.display = 'flex';
+    el.style.zIndex = ++z;
+  }
+  function closeWin(id) { document.getElementById(id).style.display = 'none'; }
+
+  function refreshHardware() {
+    document.getElementById('clock').innerText = new Date().toLocaleTimeString('bg-BG', {hour:'2-digit', minute:'2-digit'});
+    if (window.AndroidOS) {
+      const data = JSON.parse(AndroidOS.getRealHardwareStats());
+      document.getElementById('live-stats').innerText =
+        `RAM: ${data.ramUsed}/${data.ramTotal} MB | Памет: ${data.diskUsed}/${data.diskTotal} GB | 🔋 ${data.battery}%`;
+      
+      document.getElementById('sys-details').innerHTML = `
+        <h3 style="color:#e95420;">Реални данни от устройството</h3>
+        <b>Модел:</b> ${data.model}<br>
+        <b>Базова система:</b> Android ${data.androidVer}<br>
+        <b>Реален Linux Kernel:</b> ${data.kernel}<br>
+        <b>Процесорна архитектура:</b> ${data.arch}<br>
+        <b>Използвана RAM памет в момента:</b> ${data.ramUsed} MB от ${data.ramTotal} MB<br>
+        <b>Заето място (Вътрешна + 64GB SD):</b> ${data.diskUsed} GB от ${data.diskTotal} GB<br>
+        <b>Заряд на батерията:</b> ${data.battery}%
+      `;
+    }
+  }
+  setInterval(refreshHardware, 1500);
+
+  function openFiles(subPath) {
+    openWin('win-files');
+    document.getElementById('file-title').innerText = 'Files - /sdcard/' + subPath;
+    const grid = document.getElementById('real-files-grid');
+    grid.innerHTML = '';
+    if (window.AndroidOS) {
+      const list = JSON.parse(AndroidOS.listRealFiles(subPath));
+      list.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'item-box';
+        div.innerHTML = (f.isDir ? '📁<br>' : '📄<br>') + f.name + (f.isDir ? '' : `<br><small style="color:#aaa">${f.sizeKB} KB</small>`);
+        if (f.isDir) {
+          div.onclick = () => openFiles(subPath ? subPath + '/' + f.name : f.name);
+        }
+        grid.appendChild(div);
+      });
+    }
+  }
+
+  function runRealShell(e) {
+    if (e.key === 'Enter') {
+      const inp = document.getElementById('term-in');
+      const out = document.getElementById('term-out');
+      const cmd = inp.value.trim();
+      out.innerHTML += `<span style="color:#8ae234">shell@alcatel:~$</span> ${cmd}<br>`;
+      if (cmd === 'clear') {
+        out.innerHTML = '';
+      } else if (window.AndroidOS && cmd !== '') {
+        const res = AndroidOS.execRealLinuxCommand(cmd);
+        out.innerHTML += `<pre style="white-space:pre-wrap;color:#ddd;">${res}</pre>`;
+      }
+      inp.value = '';
+      document.getElementById('term-body').scrollTop = document.getElementById('term-body').scrollHeight;
+    }
+  }
+
+  function openApps() {
+    openWin('win-apps');
+    const grid = document.getElementById('real-apps-grid');
+    grid.innerHTML = '';
+    if (window.AndroidOS) {
+      const apps = JSON.parse(AndroidOS.getInstalledApps());
+      apps.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'item-box';
+        div.innerHTML = `📦<br>${a.label}`;
+        div.onclick = () => AndroidOS.launchApp(a.pkg);
+        grid.appendChild(div);
+      });
+    }
+  }
+
+  function openSysInfo() { refreshHardware(); openWin('win-sys'); }
+
+  function drag(ev, id) {
+    const w = document.getElementById(id);
+    w.style.zIndex = ++z;
+    const t0 = ev.touches[0];
+    const dx = t0.clientX - w.offsetLeft;
+    const dy = t0.clientY - w.offsetTop;
+    function move(e) {
+      w.style.left = (e.touches[0].clientX - dx) + 'px';
+      w.style.top = (e.touches[0].clientY - dy) + 'px';
+    }
+    document.addEventListener('touchmove', move);
+    document.ontouchend = () => document.removeEventListener('touchmove', move);
+  }
+
+  window.onload = () => { refreshHardware(); openFiles(''); };
+</script>
+</body>
+</html>
